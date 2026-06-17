@@ -1,0 +1,9 @@
+DELETE FROM "Message";
+DELETE FROM "Application";
+DELETE FROM "Notification";
+DELETE FROM "InterviewSlot";
+DELETE FROM "Review";
+DELETE FROM "Listing";
+DELETE FROM "Student";
+DELETE FROM "Employer";
+DELETE FROM "User";
