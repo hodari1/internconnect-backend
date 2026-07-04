@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.104.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@react-native-community/datetimepicker": "^9.1.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",

@@ -22,6 +22,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Log every incoming request
+app.use((req, res, next) => {
+  console.log(`Incoming: ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Swagger docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -37,6 +43,12 @@ app.use('/api/v1/reviews', reviewRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'InternConnect API is running' });
+});
+
+// 404 handler — catches any unmatched route
+app.use((req, res) => {
+  console.warn(`No route matched: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: 'Not found', path: req.originalUrl });
 });
 
 const PORT = process.env.PORT || 5000;

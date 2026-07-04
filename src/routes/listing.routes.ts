@@ -1,6 +1,6 @@
 import '../env';
 import { Router } from 'express';
-import { createListing, getListings, getListingById, updateListing, deleteListing, getSkillsGap } from '../controllers/listing.controller';
+import { createListing, getListings, getListingById, updateListing, deleteListing, getSkillsGap, getMyListings } from '../controllers/listing.controller';
 import { protect, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -35,6 +35,20 @@ const router = Router();
  *         description: List of internship listings
  */
 router.get('/', protect, getListings);
+
+/**
+ * @swagger
+ * /api/v1/listings/my:
+ *   get:
+ *     summary: Get all listings for the logged-in employer
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Employer's own listings
+ */
+router.get('/my', protect, requireRole('employer'), getMyListings);
 
 /**
  * @swagger

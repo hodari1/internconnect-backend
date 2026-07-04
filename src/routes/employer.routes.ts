@@ -1,8 +1,8 @@
 import '../env';
 import { Router } from 'express';
-import { getProfile, updateProfile, uploadLogo } from '../controllers/employer.controller';
+import { getProfile, updateProfile, uploadLogo, getListingMatches } from '../controllers/employer.controller';
 import { protect, requireRole } from '../middleware/auth.middleware';
-import { upload, uploadImage } from '../services/upload';
+import { uploadImage } from '../services/upload';
 
 const router = Router();
 
@@ -70,5 +70,25 @@ router.put('/profile', protect, requireRole('employer'), updateProfile);
  *         description: Logo uploaded successfully
  */
 router.post('/upload-logo', protect, requireRole('employer'), uploadImage.single('logo'), uploadLogo);
+
+/**
+ * @swagger
+ * /api/v1/employers/listings/{id}/matches:
+ *   get:
+ *     summary: Get AI match scores for all applicants on a listing
+ *     tags: [Employers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ranked applicants with AI match scores
+ */
+router.get('/listings/:id/matches', protect, requireRole('employer'), getListingMatches);
 
 export default router;

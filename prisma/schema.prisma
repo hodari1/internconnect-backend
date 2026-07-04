@@ -86,21 +86,25 @@ model Application {
   student        Student  @relation(fields: [studentId], references: [id])
   listing        Listing  @relation(fields: [listingId], references: [id])
   messages       Message[]
+  interviewSlots InterviewSlot[]
 
   @@unique([studentId, listingId])
 }
 
 model InterviewSlot {
-  id         String   @id @default(cuid())
-  listingId  String
-  datetime   DateTime
-  bookedById String?
-  confirmed  Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id            String       @id @default(cuid())
+  listingId     String
+  applicationId String?      
+  datetime      DateTime
+  location      String?      
+  notes         String?      
+  bookedById    String?
+  confirmed     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
 
-  listing    Listing  @relation(fields: [listingId], references: [id])
+  listing       Listing      @relation(fields: [listingId], references: [id])
+  application   Application? @relation(fields: [applicationId], references: [id])
 }
-
 model Review {
   id         String   @id @default(cuid())
   authorId   String

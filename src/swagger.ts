@@ -39,3 +39,4 @@ const options = {
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+console.log('Swagger paths:', Object.keys((swaggerSpec as any).paths));

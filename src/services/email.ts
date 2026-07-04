@@ -64,3 +64,48 @@ export const sendPasswordResetEmail = async (email: string, name: string, otp: s
     `,
   });
 };
+
+// Send interview invitation email
+export const sendInterviewEmail = async (
+  email: string,
+  studentName: string,
+  jobTitle: string,
+  companyName: string,
+  datetime: Date,
+  location: string | null,
+  notes: string | null
+): Promise<void> => {
+  const formattedDate = datetime.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  const formattedTime = datetime.toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit',
+  });
+
+  await transporter.sendMail({
+    from: `"InternConnect" <${process.env.FROM_EMAIL}>`,
+    to: email,
+    subject: `Interview Scheduled: ${jobTitle} at ${companyName}`,
+    html: `
+      <h2>Congratulations, ${studentName}! 🎉</h2>
+      <p>You have been scheduled for an interview for the <strong>${jobTitle}</strong> position at <strong>${companyName}</strong>.</p>
+
+      <div style="
+        background: #F3F4F6;
+        border-left: 4px solid #4F46E5;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 6px;
+      ">
+        <p style="margin: 0 0 8px 0;"><strong>📅 Date:</strong> ${formattedDate}</p>
+        <p style="margin: 0 0 8px 0;"><strong>🕐 Time:</strong> ${formattedTime}</p>
+        ${location ? `<p style="margin: 0 0 8px 0;"><strong>📍 Location:</strong> ${location}</p>` : ''}
+      </div>
+
+      ${notes ? `<p><strong>Additional notes from the employer:</strong></p><p>${notes}</p>` : ''}
+
+      <p>Please make sure to be available at the scheduled time. Good luck!</p>
+      <p>— The InternConnect Team</p>
+    `,
+  });
+};
