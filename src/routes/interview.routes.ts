@@ -1,6 +1,12 @@
 import '../env';
 import { Router } from 'express';
-import { createSlot, getListingSlots, bookSlot, getMySlots } from '../controllers/interview.controller';
+import {
+  createSlot,
+  getListingSlots,
+  bookSlot,
+  getMySlots,
+  scheduleInterviewForApplication,
+} from '../controllers/interview.controller';
 import { protect, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -31,6 +37,51 @@ const router = Router();
  *         description: Slot created
  */
 router.post('/', protect, requireRole('employer'), createSlot);
+
+/**
+ * @swagger
+ * /api/v1/interviews/schedule/{applicationId}:
+ *   post:
+ *     summary: Directly schedule an interview for a shortlisted applicant
+ *     tags: [Interviews]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: applicationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The application ID to schedule interview for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [datetime]
+ *             properties:
+ *               datetime:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2026-07-20T10:00:00.000Z"
+ *               location:
+ *                 type: string
+ *                 example: "Kigali Office, Floor 2"
+ *               notes:
+ *                 type: string
+ *                 example: "Please bring your ID"
+ *     responses:
+ *       201:
+ *         description: Interview scheduled and student notified
+ *       400:
+ *         description: datetime missing or applicant not shortlisted
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Application or employer not found
+ */
+router.post('/schedule/:applicationId', protect, requireRole('employer'), scheduleInterviewForApplication);
 
 /**
  * @swagger

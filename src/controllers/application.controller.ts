@@ -2,19 +2,36 @@ import '../env';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../services/prisma';
+import cloudinary from '../services/cloudinary';
+import { Readable } from 'stream';
 import { Groq } from 'groq-sdk/index.js';
+
+const groq = new Groq();
 
 // POST /api/v1/applications
 export const applyForListing = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { listingId, coverLetterUrl } = req.body;
+    let { listingId, coverLetterUrl } = req.body as { listingId?: string; coverLetterUrl?: string };
+
+    if (req.file) {
+      const file = req.file;
+      coverLetterUrl = await new Promise<string>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'internconnect/cover-letters', resource_type: 'raw', format: 'pdf' },
+          (error, result) => {
+            if (error || !result) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        Readable.from(file.buffer).pipe(uploadStream);
+      });
+    }
 
     if (!listingId) {
       res.status(400).json({ error: 'listingId is required' });
       return;
     }
 
-    // Get student profile
     const student = await prisma.student.findUnique({
       where: { userId: req.user!.userId }
     });
@@ -24,7 +41,6 @@ export const applyForListing = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    // Check listing exists and is open
     const listing = await prisma.listing.findUnique({
       where: { id: listingId }
     });
@@ -39,7 +55,6 @@ export const applyForListing = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    // Check if already applied
     const existing = await prisma.application.findUnique({
       where: { studentId_listingId: { studentId: student.id, listingId } }
     });
@@ -115,7 +130,6 @@ export const getListingApplications = async (req: AuthRequest, res: Response): P
       return;
     }
 
-    // Make sure this listing belongs to this employer
     const listing = await prisma.listing.findUnique({
       where: { id: req.params.listingId as string }
     });
@@ -140,6 +154,7 @@ export const getListingApplications = async (req: AuthRequest, res: Response): P
             department: true,
             year: true,
             gpa: true,
+            bio: true,
             skills: true,
             cvUrl: true,
             photoUrl: true,
@@ -152,7 +167,15 @@ export const getListingApplications = async (req: AuthRequest, res: Response): P
       orderBy: { appliedAt: 'desc' }
     });
 
-    res.json({ total: applications.length, applications });
+    const result = applications.map((app) => ({
+      id: app.id,
+      status: app.status,
+      appliedAt: app.appliedAt,
+      coverLetterUrl: app.coverLetterUrl,
+      student: app.student,
+    }));
+
+    res.json({ total: result.length, applications: result });
   } catch (error) {
     console.error('getListingApplications error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -179,18 +202,17 @@ export const updateApplicationStatus = async (req: AuthRequest, res: Response): 
       return;
     }
 
-    // Get application and verify ownership
-   const application = await prisma.application.findUnique({
-  where: { id: req.params.id as string },
-  include: {
-    listing: true,
-    student: {
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id as string },
       include: {
-        user: { select: { id: true } }
+        listing: true,
+        student: {
+          include: {
+            user: { select: { id: true } }
+          }
+        }
       }
-    }
-  }
-});
+    });
 
     if (!application) {
       res.status(404).json({ error: 'Application not found' });
@@ -203,30 +225,27 @@ export const updateApplicationStatus = async (req: AuthRequest, res: Response): 
     }
 
     const updated = await prisma.application.update({
-  where: { id: req.params.id as string },
-  data: { status }
-});
+      where: { id: req.params.id as string },
+      data: { status }
+    });
 
-// Auto-notify the student
-const statusMessages: Record<string, string> = {
-  reviewed: 'Your application has been reviewed by the employer.',
-  shortlisted: 'Congratulations! You have been shortlisted for an internship.',
-  accepted: 'Congratulations! Your internship application has been accepted!',
-  rejected: 'Your application was not successful this time. Keep applying!',
-};
+    const statusMessages: Record<string, string> = {
+      reviewed: 'Your application has been reviewed by the employer.',
+      shortlisted: 'Congratulations! You have been shortlisted for an internship.',
+      accepted: 'Congratulations! Your internship application has been accepted!',
+      rejected: 'Your application was not successful this time. Keep applying!',
+    };
 
-const message = statusMessages[status];
-if (message) {
-  await prisma.notification.create({
-    data: {
-      userId: application.student.user.id,
-      type: 'application_status',
-      message: `${application.listing.title}: ${message}`,
+    const message = statusMessages[status];
+    if (message) {
+      await prisma.notification.create({
+        data: {
+          userId: application.student.user.id,
+          type: 'application_status',
+          message: `${application.listing.title}: ${message}`,
+        }
+      });
     }
-  });
-}
-
-res.json({ message: 'Application status updated', application: updated });
 
     res.json({ message: 'Application status updated', application: updated });
   } catch (error) {
@@ -256,13 +275,11 @@ export const withdrawApplication = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    // Make sure this application belongs to this student
     if (application.studentId !== student.id) {
       res.status(403).json({ error: 'You can only withdraw your own applications' });
       return;
     }
 
-    // Can't withdraw if already accepted
     if (application.status === 'accepted') {
       res.status(400).json({ error: 'You cannot withdraw an accepted application' });
       return;
@@ -279,3 +296,102 @@ export const withdrawApplication = async (req: AuthRequest, res: Response): Prom
   }
 };
 
+// POST /api/v1/applications/:id/analyze
+export const analyzeApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const employer = await prisma.employer.findUnique({
+      where: { userId: req.user!.userId }
+    });
+
+    if (!employer) {
+      res.status(404).json({ error: 'Employer profile not found' });
+      return;
+    }
+
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        listing: true,
+        student: {
+          include: {
+            user: { select: { name: true, email: true } }
+          }
+        }
+      }
+    });
+
+    if (!application) {
+      res.status(404).json({ error: 'Application not found' });
+      return;
+    }
+
+    if (application.listing.employerId !== employer.id) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const { student, listing } = application;
+
+    const prompt = `
+You are an expert hiring assistant for internship positions. Analyze this applicant and provide a detailed hiring recommendation.
+
+JOB DETAILS:
+- Title: ${listing.title}
+- Description: ${listing.description}
+- Required Skills: ${listing.skills || 'Not specified'}
+- Location: ${listing.location || 'Not specified'}
+- Duration: ${listing.duration || 'Not specified'}
+
+APPLICANT PROFILE:
+- Name: ${student.user.name}
+- University: ${student.university || 'Not provided'}
+- Faculty: ${student.faculty || 'Not provided'}
+- Department: ${student.department || 'Not provided'}
+- Year of Study: ${student.year ? `Year ${student.year}` : 'Not provided'}
+- GPA: ${student.gpa || 'Not provided'}
+- Skills: ${student.skills || 'Not provided'}
+- Bio: ${student.bio || 'Not provided'}
+- CV Available: ${student.cvUrl ? 'Yes' : 'No'}
+- Cover Letter Available: ${application.coverLetterUrl ? 'Yes' : 'No'}
+
+Return ONLY this JSON with no extra text:
+{
+  "score": <number 0-100>,
+  "decision": "<Hire | Maybe | Pass>",
+  "summary": "<2-3 sentence overall summary of the candidate>",
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "gaps": ["<gap 1>", "<gap 2>"],
+  "recommendation": "<1-2 sentence final hiring recommendation>"
+}
+    `;
+
+    const aiResponse = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are an expert hiring assistant. Respond with valid JSON only, no markdown, no extra text.' },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 500,
+    });
+
+    const raw = aiResponse.choices[0]?.message?.content?.trim() || '{}';
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(cleaned);
+
+    res.json({
+      applicationId: application.id,
+      studentName: student.user.name,
+      listingTitle: listing.title,
+      score: result.score || 0,
+      decision: result.decision || 'Maybe',
+      summary: result.summary || '',
+      strengths: result.strengths || [],
+      gaps: result.gaps || [],
+      recommendation: result.recommendation || '',
+    });
+
+  } catch (error) {
+    console.error('analyzeApplicant error:', error);
+    res.status(500).json({ error: 'AI analysis failed' });
+  }
+};
