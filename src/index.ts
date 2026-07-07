@@ -18,9 +18,19 @@ import reviewRoutes from './routes/review.routes';
 const app: Express = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:5173", "http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Swagger docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -37,6 +47,11 @@ app.use('/api/v1/reviews', reviewRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'InternConnect API is running' });
+});
+
+app.use((req, res) => {
+  console.warn(`No route matched: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: 'Not found', path: req.originalUrl });
 });
 
 const PORT = process.env.PORT || 5000;

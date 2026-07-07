@@ -5,6 +5,19 @@ import prisma from '../services/prisma';
 import { checkAndNotifyStudents } from '../services/jobAlerts';
 import Groq from 'groq-sdk';
 
+// Helper: compute display status (does NOT touch the DB status column)
+const withDisplayStatus = (listing: any) => {
+  const isExpired =
+    listing.deadline &&
+    new Date(listing.deadline) < new Date() &&
+    listing.status === 'open';
+
+  return {
+    ...listing,
+    displayStatus: isExpired ? 'expired' : listing.status,
+  };
+};
+
 // POST /api/v1/listings
 export const createListing = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -41,7 +54,7 @@ export const createListing = async (req: AuthRequest, res: Response): Promise<vo
     // Trigger job alerts in background
     checkAndNotifyStudents(listing.id).catch(console.error);
 
-    res.status(201).json({ message: 'Listing created', listing });
+    res.status(201).json({ message: 'Listing created', listing: withDisplayStatus(listing) });
   } catch (error) {
     console.error('createListing error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -49,38 +62,49 @@ export const createListing = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 // GET /api/v1/listings
+// Public route (optionalAuth): req.user may be undefined for guests.
 export const getListings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { search, location, skills, stipend, industry } = req.query;
+    const role = req.user?.role;
 
+    // If employer, return only their own listings (with displayStatus, including 'expired')
+    if (role === 'employer') {
+      const employer = await prisma.employer.findUnique({
+        where: { userId: req.user!.userId }
+      });
+
+      if (!employer) {
+        res.status(404).json({ error: 'Employer profile not found' });
+        return;
+      }
+
+      const listings = await prisma.listing.findMany({
+        where: { employerId: employer.id },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      const listingsWithStatus = listings.map(withDisplayStatus);
+
+      res.json({ total: listingsWithStatus.length, listings: listingsWithStatus });
+      return;
+    }
+
+    // Guests and students see only open, non-expired listings
     const listings = await prisma.listing.findMany({
       where: {
         status: 'open',
-        // Search in title or description
-        ...(search && {
-          OR: [
-            { title: { contains: search as string, mode: 'insensitive' } },
-            { description: { contains: search as string, mode: 'insensitive' } },
-          ]
-        }),
-        // Filter by location
-        ...(location && {
-          location: { contains: location as string, mode: 'insensitive' }
-        }),
-        // Filter by skills
-        ...(skills && {
-          skills: { contains: skills as string, mode: 'insensitive' }
-        }),
-        // Filter by employer industry
-        ...(industry && {
-          employer: {
-            industry: { contains: industry as string, mode: 'insensitive' }
-          }
-        }),
-        // Filter by minimum stipend
-        ...(stipend && {
-          stipend: { contains: stipend as string, mode: 'insensitive' }
-        }),
+        AND: [
+          { OR: [{ deadline: null }, { deadline: { gte: new Date() } }] }
+        ],
+        ...(search && { OR: [
+          { title: { contains: search as string, mode: 'insensitive' } },
+          { description: { contains: search as string, mode: 'insensitive' } },
+        ]}),
+        ...(location && { location: { contains: location as string, mode: 'insensitive' } }),
+        ...(skills && { skills: { contains: skills as string, mode: 'insensitive' } }),
+        ...(industry && { employer: { industry: { contains: industry as string, mode: 'insensitive' } } }),
+        ...(stipend && { stipend: { contains: stipend as string, mode: 'insensitive' } }),
       },
       include: {
         employer: {
@@ -98,6 +122,7 @@ export const getListings = async (req: AuthRequest, res: Response): Promise<void
 };
 
 // GET /api/v1/listings/:id
+// Public route (optionalAuth): req.user may be undefined for guests.
 export const getListingById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const listing = await prisma.listing.findUnique({
@@ -114,7 +139,16 @@ export const getListingById = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    res.json({ listing });
+    const isEmployer = req.user?.role === 'employer';
+    const isExpired = listing.deadline ? new Date(listing.deadline) < new Date() : false;
+
+    // Guests, students, and anyone who isn't the owning employer can't view closed or expired listings
+    if (!isEmployer && (listing.status !== 'open' || isExpired)) {
+      res.status(404).json({ error: 'Listing not found' });
+      return;
+    }
+
+    res.json({ listing: withDisplayStatus(listing) });
   } catch (error) {
     console.error('getListingById error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -164,7 +198,7 @@ export const updateListing = async (req: AuthRequest, res: Response): Promise<vo
       }
     });
 
-    res.json({ message: 'Listing updated', listing: updated });
+    res.json({ message: 'Listing updated', listing: withDisplayStatus(updated) });
   } catch (error) {
     console.error('updateListing error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -297,6 +331,32 @@ Analyze the gap and return ONLY this JSON format:
 
   } catch (error) {
     console.error('getSkillsGap error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// GET /api/v1/listings/my
+export const getMyListings = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const employer = await prisma.employer.findUnique({
+      where: { userId: req.user!.userId }
+    });
+
+    if (!employer) {
+      res.status(404).json({ error: 'Employer profile not found' });
+      return;
+    }
+
+    const listings = await prisma.listing.findMany({
+      where: { employerId: employer.id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const listingsWithStatus = listings.map(withDisplayStatus);
+
+    res.json({ total: listingsWithStatus.length, listings: listingsWithStatus });
+  } catch (error) {
+    console.error('getMyListings error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 };
