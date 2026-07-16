@@ -62,6 +62,7 @@ export const createListing = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 // GET /api/v1/listings
+// Public route (optionalAuth): req.user may be undefined for guests.
 export const getListings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { search, location, skills, stipend, industry } = req.query;
@@ -121,6 +122,7 @@ export const getListings = async (req: AuthRequest, res: Response): Promise<void
 };
 
 // GET /api/v1/listings/:id
+// Public route (optionalAuth): req.user may be undefined for guests.
 export const getListingById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const listing = await prisma.listing.findUnique({
@@ -137,10 +139,10 @@ export const getListingById = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const isEmployer = req.user!.role === 'employer';
+    const isEmployer = req.user?.role === 'employer';
     const isExpired = listing.deadline ? new Date(listing.deadline) < new Date() : false;
 
-    // Students (and anyone who isn't the owning employer) can't view closed or expired listings
+    // Guests, students, and anyone who isn't the owning employer can't view closed or expired listings
     if (!isEmployer && (listing.status !== 'open' || isExpired)) {
       res.status(404).json({ error: 'Listing not found' });
       return;

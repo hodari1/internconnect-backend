@@ -1,7 +1,7 @@
 import '../env';
 import { Router } from 'express';
 import { createListing, getListings, getListingById, updateListing, deleteListing, getSkillsGap, getMyListings } from '../controllers/listing.controller';
-import { protect, requireRole, optionalAuth } from '../middleware/auth.middleware';
+import { protect, optionalAuth, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -9,7 +9,7 @@ const router = Router();
  * @swagger
  * /api/v1/listings:
  *   get:
- *     summary: Get all open listings with optional filters
+ *     summary: Get all open listings with optional filters (public — no login required)
  *     tags: [Listings]
  *     parameters:
  *       - in: query
@@ -52,10 +52,8 @@ router.get('/my', protect, requireRole('employer'), getMyListings);
  * @swagger
  * /api/v1/listings/{id}:
  *   get:
- *     summary: Get a single listing by ID
+ *     summary: Get a single listing by ID (public — no login required)
  *     tags: [Listings]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -66,7 +64,7 @@ router.get('/my', protect, requireRole('employer'), getMyListings);
  *       200:
  *         description: Listing details
  */
-router.get('/:id', protect, getListingById);
+router.get('/:id', optionalAuth, getListingById);
 
 /**
  * @swagger

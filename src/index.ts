@@ -17,7 +17,18 @@ import reviewRoutes from './routes/review.routes';
 
 const app: Express = express();
 
+// Always-allowed local dev origins, plus whatever is configured via env for deployed frontends.
+// Optionally set ALLOWED_ORIGINS on Render as a comma-separated list, e.g.:
+//   ALLOWED_ORIGINS=https://internconnect.vercel.app,https://your-custom-domain.com
+const localOrigins = ["http://localhost:5173", "http://localhost:3000"];
+const envOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const allowedOrigins = [...localOrigins, ...envOrigins];
+
 app.use(helmet());
+<<<<<<< HEAD
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:8081',
@@ -41,6 +52,28 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
+=======
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests (curl, Postman, server-to-server) which send no Origin header
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow any Vercel deployment (production + preview URLs) for this project
+    // without having to list each one manually.
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS blocked request from origin: ${origin}`);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+>>>>>>> 3b02c06789f30e3ea8948ab0e7b01cbcdd8cd287
   credentials: true,
 }));
 app.use(express.json());
@@ -48,7 +81,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Log every incoming request
 app.use((req, res, next) => {
-  console.log(`Incoming: ${req.method} ${req.originalUrl}`);
+  console.log(`Incoming request: ${req.method} ${req.originalUrl}`);
   next();
 });
 

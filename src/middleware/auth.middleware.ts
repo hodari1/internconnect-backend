@@ -32,8 +32,10 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
   }
 };
 
-// Attaches req.user if a valid token is present, but never blocks the request.
-// Use this for public endpoints that show extra/different data to logged-in users.
+// Like `protect`, but does not block the request when no valid token is present.
+// Guests (no token, or an invalid/expired one) get req.user === undefined;
+// logged-in users still get req.user populated (e.g. so a controller can
+// branch on role or personalize a public response).
 export const optionalAuth = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
