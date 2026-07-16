@@ -20,7 +20,13 @@ const app: Express = express();
 // Always-allowed local dev origins, plus whatever is configured via env for deployed frontends.
 // Optionally set ALLOWED_ORIGINS on Render as a comma-separated list, e.g.:
 //   ALLOWED_ORIGINS=https://internconnect.vercel.app,https://your-custom-domain.com
-const localOrigins = ["http://localhost:5173", "http://localhost:3000"];
+const localOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:8081',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:8081',
+];
 const envOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
@@ -28,37 +34,17 @@ const envOrigins = (process.env.ALLOWED_ORIGINS || "")
 const allowedOrigins = [...localOrigins, ...envOrigins];
 
 app.use(helmet());
-<<<<<<< HEAD
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:8081',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:8081',
-  'https://her-project.vercel.app',
-  'https://internconnect-backend-3lck.onrender.com',
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (
-      !origin ||
-      allowedOrigins.includes(origin) ||
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('http://127.0.0.1:') ||
-      origin.startsWith('http://192.168.')
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-=======
 app.use(cors({
   origin: (origin, callback) => {
     // Allow non-browser requests (curl, Postman, server-to-server) which send no Origin header
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.startsWith('http://192.168.')
+    ) {
       return callback(null, true);
     }
 
@@ -73,7 +59,6 @@ app.use(cors({
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
->>>>>>> 3b02c06789f30e3ea8948ab0e7b01cbcdd8cd287
   credentials: true,
 }));
 app.use(express.json());
