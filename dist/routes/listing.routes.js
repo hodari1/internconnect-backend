@@ -1,16 +1,18 @@
-import '../env';
-import { Router } from 'express';
-import { createListing, getListings, getListingById, updateListing, deleteListing, getSkillsGap, getMyListings } from '../controllers/listing.controller';
-import { protect, requireRole, optionalAuth } from '../middleware/auth.middleware';
-
-const router = Router();
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+require("../env");
+const express_1 = require("express");
+const listing_controller_1 = require("../controllers/listing.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
 /**
  * @swagger
  * /api/v1/listings:
  *   get:
  *     summary: Get all open listings with optional filters
  *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: search
@@ -32,8 +34,7 @@ const router = Router();
  *       200:
  *         description: List of internship listings
  */
-router.get('/', optionalAuth, getListings);
-
+router.get('/', auth_middleware_1.protect, listing_controller_1.getListings);
 /**
  * @swagger
  * /api/v1/listings/my:
@@ -46,8 +47,7 @@ router.get('/', optionalAuth, getListings);
  *       200:
  *         description: Employer's own listings
  */
-router.get('/my', protect, requireRole('employer'), getMyListings);
-
+router.get('/my', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), listing_controller_1.getMyListings);
 /**
  * @swagger
  * /api/v1/listings/{id}:
@@ -66,8 +66,7 @@ router.get('/my', protect, requireRole('employer'), getMyListings);
  *       200:
  *         description: Listing details
  */
-router.get('/:id', protect, getListingById);
-
+router.get('/:id', auth_middleware_1.protect, listing_controller_1.getListingById);
 /**
  * @swagger
  * /api/v1/listings:
@@ -104,8 +103,7 @@ router.get('/:id', protect, getListingById);
  *       201:
  *         description: Listing created
  */
-router.post('/', protect, requireRole('employer'), createListing);
-
+router.post('/', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), listing_controller_1.createListing);
 /**
  * @swagger
  * /api/v1/listings/{id}:
@@ -124,8 +122,7 @@ router.post('/', protect, requireRole('employer'), createListing);
  *       200:
  *         description: Listing updated
  */
-router.put('/:id', protect, requireRole('employer'), updateListing);
-
+router.put('/:id', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), listing_controller_1.updateListing);
 /**
  * @swagger
  * /api/v1/listings/{id}:
@@ -144,8 +141,7 @@ router.put('/:id', protect, requireRole('employer'), updateListing);
  *       200:
  *         description: Listing deleted
  */
-router.delete('/:id', protect, requireRole('employer'), deleteListing);
-
+router.delete('/:id', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), listing_controller_1.deleteListing);
 /**
  * @swagger
  * /api/v1/listings/{id}/skills-gap:
@@ -164,6 +160,5 @@ router.delete('/:id', protect, requireRole('employer'), deleteListing);
  *       200:
  *         description: Skills gap analysis
  */
-router.get('/:id/skills-gap', protect, requireRole('student'), getSkillsGap);
-
-export default router;
+router.get('/:id/skills-gap', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('student'), listing_controller_1.getSkillsGap);
+exports.default = router;

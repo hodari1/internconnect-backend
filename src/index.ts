@@ -18,7 +18,31 @@ import reviewRoutes from './routes/review.routes';
 const app: Express = express();
 
 app.use(helmet());
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:8081',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:8081',
+  'https://her-project.vercel.app',
+  'https://internconnect-backend-3lck.onrender.com',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      origin.startsWith('http://192.168.')
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

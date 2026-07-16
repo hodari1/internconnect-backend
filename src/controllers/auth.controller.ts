@@ -88,19 +88,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    console.log(`[LOGIN] Attempting login for email: ${email}`);
+
     // Find user
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
+      console.log(`[LOGIN] User not found for email: ${email}`);
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
+    console.log(`[LOGIN] User found: ${user.id}, checking password...`);
+
     // Check password
     const passwordMatch = await bcrypt.compare(password, user.password);
+    console.log(`[LOGIN] Password match result: ${passwordMatch}, stored hash starts with: ${user.password.substring(0, 20)}`);
+    
     if (!passwordMatch) {
+      console.log(`[LOGIN] Password mismatch for user: ${user.email}`);
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
+
+    console.log(`[LOGIN] Password matched! Generating JWT for user: ${user.id}`);
 
     // Sign JWT
     const token = jwt.sign(
@@ -108,6 +118,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       process.env.JWT_SECRET as string,
       { expiresIn: '24h' }
     );
+
+    console.log(`[LOGIN] JWT generated successfully for user: ${user.id}`);
 
     res.json({
       message: 'Login successful',

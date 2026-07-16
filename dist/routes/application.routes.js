@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+require("../env");
+const express_1 = require("express");
+const application_controller_1 = require("../controllers/application.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const upload_1 = require("../services/upload");
+const router = (0, express_1.Router)();
+router.post('/', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('student'), upload_1.upload.single('coverLetter'), application_controller_1.applyForListing);
+router.get('/my', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('student'), application_controller_1.getMyApplications);
+router.get('/listing/:listingId', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), application_controller_1.getListingApplications);
+router.put('/:id/status', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), application_controller_1.updateApplicationStatus);
+router.delete('/:id', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('student'), application_controller_1.withdrawApplication);
+router.post('/:id/analyze', auth_middleware_1.protect, (0, auth_middleware_1.requireRole)('employer'), application_controller_1.analyzeApplicant);
+exports.default = router;

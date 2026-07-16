@@ -65,7 +65,7 @@ export const createListing = async (req: AuthRequest, res: Response): Promise<vo
 export const getListings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { search, location, skills, stipend, industry } = req.query;
-    const role = req.user!.role;
+    const role = req.user?.role; // may be undefined for guests (public browsing)
 
     // If employer, return only their own listings (with displayStatus, including 'expired')
     if (role === 'employer') {
@@ -89,7 +89,7 @@ export const getListings = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Students see only open, non-expired listings
+    // Guests and students see only open, non-expired listings
     const listings = await prisma.listing.findMany({
       where: {
         status: 'open',
